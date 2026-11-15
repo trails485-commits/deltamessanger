@@ -364,7 +364,7 @@ function displayName(peer) {
   if (peer.is_channel) return peer.name || peer.username || 'Канал';
   if (peer.is_deleted) return 'Удаленный аккаунт';
   if (peer.is_saved) return 'Избранное';
-  if (isPeerFrozenForMe(peer)) return 'Замороженный аккаунт';
+  if (isPeerFrozenForMe(peer)) return 'Удаленный аккаунт';
   if (state.user && state.user.contacts && state.user.contacts[peer.username]) {
     const c = state.user.contacts[peer.username];
     const custom = `${c.firstname || ''} ${c.lastname || ''}`.trim();
@@ -1983,7 +1983,7 @@ async function showUserView(u) {
   }
   if (isPeerFrozenForMe(u)) {
     renderAvatar($('#user-view-avatar'), u);
-    $('#user-view-name').innerHTML = 'Замороженный аккаунт' + frozenIcon();
+    $('#user-view-name').innerHTML = 'Удаленный аккаунт' + frozenIcon();
     $('#user-view-username-row').textContent = '—'; $('#user-view-bio').textContent = '—';
     $('#user-view-status-text').textContent = '❄️ Заморожен'; $('#user-view-status-text').style.color = 'var(--accent)';
     $('#user-profile-main-actions').hidden = true; $('#btn-edit-contact').hidden = true;
@@ -3004,6 +3004,10 @@ function renderAdminContent() {
           <div class="edit-row-icon" style="background-color: #1e88e5;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2l1.5 4.5L18 5l-2 4 4.5 1.5-4.5 1.5 2 4-4.5-1.5L12 19l-1.5-4.5L6 16l2-4L3.5 10.5 8 9 6 5l4.5 1.5z"/></svg></div>
           <div class="edit-row-text">Заморозить аккаунт</div>
         </div>
+        <div class="edit-row" data-admin-action="block">
+          <div class="edit-row-icon" style="background-color: #e53935;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-2h-2v2zm0-10h2v6h-2V7z"/></svg></div>
+          <div class="edit-row-text" style="color: var(--danger);">Заблокировать аккаунт</div>
+        </div>
       </div>
       <div style="padding:16px;">
         <button class="btn-secondary" id="admin-logout-btn" style="width:100%;">Выйти из админки</button>
@@ -3019,11 +3023,13 @@ function renderAdminContent() {
   }
   if (state.adminState === 'form') {
     const isFreeze = state.adminFormType === 'freeze';
+    const isBlock = state.adminFormType === 'block';
+    const byName = isFreeze || isBlock;
     if (!state.adminTargetUser) {
-      const placeholder = isFreeze ? '@username' : 'ID (8 — юзер, 6 — канал)';
+      const placeholder = byName ? '@username' : 'ID (8 — юзер, 6 — канал)';
       c.innerHTML = `
         <div class="edit-group" style="margin-top:16px;">
-          <div class="edit-input-row"><input type="text" id="admin-id-input" placeholder="${placeholder}" ${isFreeze ? '' : 'maxlength="8" inputmode="numeric"'}></div>
+          <div class="edit-input-row"><input type="text" id="admin-id-input" placeholder="${placeholder}" ${byName ? '' : 'maxlength="8" inputmode="numeric"'}></div>
         </div>
         <div style="padding:16px;">
           <button class="btn-primary" id="admin-find-btn" style="width:100%;">Найти аккаунт</button>
@@ -3033,7 +3039,7 @@ function renderAdminContent() {
         const val = $('#admin-id-input').value.trim();
         try {
           let u;
-          if (isFreeze) { if (!val) return toast('Введите имя пользователя'); u = await api('/api/admin/find_user_by_name', { method: 'POST', body: JSON.stringify({ password: state.adminPassword, username: val }) }); }
+          if (byName) { if (!val) return toast('Введите имя пользователя'); u = await api('/api/admin/find_user_by_name', { method: 'POST', body: JSON.stringify({ password: state.adminPassword, username: val }) }); }
           else { if (!/^\d{6,8}$/.test(val)) return toast('ID должен быть 6 или 8 цифр'); u = await api('/api/admin/find_user', { method: 'POST', body: JSON.stringify({ password: state.adminPassword, user_id: val }) }); }
           state.adminTargetUser = u; renderAdminContent();
         } catch (err) { toast(err.message); }
@@ -3058,7 +3064,10 @@ function renderAdminContent() {
     } else if (!isChannel && type === 'freeze') {
       if (u.is_frozen) formHtml = `<div style="padding:16px; text-align:center; color:var(--accent); font-weight:600;">❄️ Заморожен до ${formatDate(u.frozen_until)}</div><div style="padding:0 16px 16px;"><button class="btn-primary" id="admin-unfreeze-btn" style="width:100%;">Разморозить</button><button class="btn-secondary" id="admin-form-back" style="width:100%; margin-top:8px;">Отмена</button></div>`;
       else formHtml = `<div class="edit-group" style="margin-top:16px;"><div class="edit-input-row"><input type="number" id="admin-days-input" placeholder="Количество дней (1-3650)" min="1" max="3650"></div></div><div style="padding:16px;"><button class="btn-primary" id="admin-freeze-btn" style="width:100%;">Заморозить</button><button class="btn-secondary" id="admin-form-back" style="width:100%; margin-top:8px;">Отмена</button></div>`;
-    } else if (isChannel && (type === 'up' || type === 'up+' || type === 'stars' || type === 'phone' || type === 'freeze')) {
+    } else if (!isChannel && type === 'block') {
+      if (u.is_deleted) formHtml = `<div style="padding:16px; text-align:center; color:var(--danger); font-weight:600;">🚫 Аккаунт уже заблокирован (удален)</div>`;
+      else formHtml = `<div style="padding:16px; text-align:center; color:var(--danger); font-weight:600;">⚠️ Все данные аккаунта будут стерты, а вместо него появится «Удаленный аккаунт». Это действие необратимо.</div><div style="padding:0 16px 16px;"><button class="btn-primary" id="admin-block-btn" style="width:100%; background-color: var(--danger);">Заблокировать</button><button class="btn-secondary" id="admin-form-back" style="width:100%; margin-top:8px;">Отмена</button></div>`;
+    } else if (isChannel && (type === 'up' || type === 'up+' || type === 'stars' || type === 'phone' || type === 'freeze' || type === 'block')) {
       formHtml = `<div style="padding:16px; text-align:center; color:var(--danger); font-weight:600;">Эта функция недоступна для каналов</div><div style="padding:0 16px 16px;"><button class="btn-secondary" id="admin-form-back" style="width:100%;">Назад</button></div>`;
     }
     const info = isChannel ? `
@@ -3127,6 +3136,12 @@ function renderAdminContent() {
     } else if (type === 'freeze' && !isChannel && $('#admin-unfreeze-btn')) {
       $('#admin-unfreeze-btn').onclick = async () => {
         try { const updated = await api('/api/admin/unfreeze', { method: 'POST', body: JSON.stringify({ password: state.adminPassword, username: u.username }) }); state.adminTargetUser = updated; toast('Аккаунт разморожен'); renderAdminContent(); }
+        catch (err) { toast(err.message); }
+      };
+    } else if (type === 'block' && !isChannel && $('#admin-block-btn')) {
+      $('#admin-block-btn').onclick = async () => {
+        if (!confirm(`Заблокировать @${u.username}? Все данные аккаунта будут стерты безвозвратно.`)) return;
+        try { const updated = await api('/api/admin/block', { method: 'POST', body: JSON.stringify({ password: state.adminPassword, username: u.username }) }); state.adminTargetUser = updated; toast('🚫 Аккаунт заблокирован'); renderAdminContent(); }
         catch (err) { toast(err.message); }
       };
     }

@@ -215,6 +215,36 @@ def ensure_not_frozen(u):
         raise HTTPException(status_code=403, detail="❄️ Аккаунт заморожен. Действия недоступны.")
 
 
+def wipe_user_data(u):
+    """Стереть все данные аккаунта и превратить его в «Удаленный аккаунт»."""
+    u["is_deleted"] = True
+    u["firstname"] = "Удаленный"
+    u["lastname"] = "аккаунт"
+    u["bio"] = ""
+    u["birthday"] = ""
+    u["avatar"] = None
+    u["phone"] = ""
+    u["contacts"] = {}
+    u["blocked"] = []
+    u["privacy"] = {}
+    u["cloud_password"] = None
+    u["subscription"] = None
+    u["is_verified"] = False
+    u["gifts"] = []
+    u["stars"] = 0
+    u["last_seen"] = 0
+    u["frozen_until"] = 0
+    u["primary_channel_id"] = None
+    u["additional_usernames"] = []
+    u["nftbot_state"] = {}
+    u["profile_bg_custom"] = None
+    u["wallpaper"] = None
+    u["login_history"] = []
+    u["trusted_devices"] = []
+    u["password"] = hash_password(secrets.token_hex(32))
+    u["login"] = f"deleted_{u.get('user_id', secrets.token_hex(4))}"
+
+
 def make_device_id(device_info, ip):
     raw = f"{device_info}|{ip}".lower()
     return hashlib.sha256(raw.encode()).hexdigest()[:32]
@@ -515,7 +545,7 @@ def public_user(u, viewer=None, light=False):
     is_self = viewer and viewer.lower() == u["username"].lower()
     if frozen and not is_self:
         return {
-            "username": u["username"], "login": "", "firstname": "Замороженный", "lastname": "аккаунт",
+            "username": u["username"], "login": "", "firstname": "Удаленный", "lastname": "аккаунт",
             "bio": "", "avatar": None, "registered_at": 0, "birthday": "", "contacts": {}, "blocked": [],
             "is_bot": False, "is_saved": False, "phone": "", "last_seen": "", "last_seen_ts": 0,
             "is_online": False, "privacy": {}, "has_cloud": False, "subscription": None, "stars": 0,
@@ -989,6 +1019,11 @@ class AdminUnfreezeIn(BaseModel):
     username: str
 
 
+class AdminBlockIn(BaseModel):
+    password: str
+    username: str
+
+
 class ChannelCreateIn(BaseModel):
     owner_username: str
     name: str
@@ -1213,6 +1248,38 @@ async def admin_unfreeze(data: AdminUnfreezeIn):
     users[uname]["frozen_until"] = 0
     save_users(users)
     return public_user(users[uname], viewer=uname)
+
+
+@app.post("/api/admin/block")
+async def admin_block(data: AdminBlockIn):
+    require_admin(data.password)
+    users = load_users()
+    uname = data.username.lower().strip().lstrip("@")
+    if uname not in users:
+        raise HTTPException(status_code=404, detail="Аккаунт не найден")
+    u = users[uname]
+    if u.get("is_deleted"):
+        raise HTTPException(status_code=400, detail="Аккаунт уже удален")
+    if u.get("is_bot"):
+        raise HTTPException(status_code=400, detail="Нельзя заблокировать бота")
+    wipe_user_data(u)
+    save_users(users)
+    revoke_all_sessions(uname, keep_token=None)
+    channels = load_channels()
+    changed = False
+    for ch in channels.values():
+        if ch.get("owner") == uname:
+            ch["owner"] = ""
+            changed = True
+        if uname in ch.get("subscribers", []):
+            ch["subscribers"].remove(uname)
+            changed = True
+        if uname in ch.get("admins", []):
+            ch["admins"].remove(uname)
+            changed = True
+    if changed:
+        save_channels(channels)
+    return public_user(u, viewer=uname)
 
 
 # ============ CHANNELS ============
@@ -1449,6 +1516,10 @@ async def register(data: RegisterIn, request: Request):
     if any(u["login"] == data.login for u in users.values()):
         raise HTTPException(status_code=400, detail="Логин уже занят")
     uname = data.username.lower()
+    # очищаем «мёртвые» username'ы заблокированных/удалённых аккаунтов, чтобы имя можно было занять заново
+    stale_keys = [k for k, uu in users.items() if uu.get("is_deleted") and (k == uname or (uu.get("username") or "").lower() == uname)]
+    for k in stale_keys:
+        del users[k]
     if not is_username_globally_available(uname):
         raise HTTPException(status_code=400, detail="Имя пользователя уже занято")
     existing_ids = {u.get("user_id") for u in users.values() if u.get("user_id")}
@@ -1734,6 +1805,8 @@ async def search_users(request: Request, q: str = "", viewer: Optional[str] = No
     users = load_users()
     for u in users.values():
         if u.get("is_saved") or u.get("is_deleted"):
+            continue
+        if is_frozen(u):
             continue
         hay = f"{u['username']} {u['firstname']} {u['lastname']}".lower()
         for au in u.get("additional_usernames", []):
@@ -2279,32 +2352,7 @@ async def delete_account(data: DeleteAccountIn, request: Request):
             raise HTTPException(status_code=400, detail="Требуется облачный пароль")
         if not verify_password(data.cloud_password, u["cloud_password"]):
             raise HTTPException(status_code=401, detail="Неверный облачный пароль")
-    u["is_deleted"] = True
-    u["firstname"] = "Удаленный"
-    u["lastname"] = "аккаунт"
-    u["bio"] = ""
-    u["birthday"] = ""
-    u["avatar"] = None
-    u["phone"] = ""
-    u["contacts"] = {}
-    u["blocked"] = []
-    u["privacy"] = {}
-    u["cloud_password"] = None
-    u["subscription"] = None
-    u["is_verified"] = False
-    u["gifts"] = []
-    u["stars"] = 0
-    u["last_seen"] = 0
-    u["frozen_until"] = 0
-    u["primary_channel_id"] = None
-    u["additional_usernames"] = []
-    u["nftbot_state"] = {}
-    u["profile_bg_custom"] = None
-    u["wallpaper"] = None
-    u["login_history"] = []
-    u["trusted_devices"] = []
-    u["password"] = hash_password(secrets.token_hex(32))
-    u["login"] = f"deleted_{u.get('user_id', secrets.token_hex(4))}"
+    wipe_user_data(u)
     save_users(users)
     revoke_all_sessions(uname, keep_token=None)
     channels = load_channels()
