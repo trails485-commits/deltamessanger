@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<!-- QR-генератор и сканер -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Delta Messenger</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+
+  <!-- ЭКРАНЫ АВТОРИЗАЦИИ -->
+  <div class="screen active" id="screen-auth">
+    <div class="auth-card">
+      <button class="back-btn" id="auth-back" hidden>←</button>
+      <div class="auth-logo">
+        <div class="logo-circle">Δ</div>
+        <h1>Delta</h1>
+        <p data-i18n="auth_welcome">Войдите, чтобы продолжить общение</p>
+      </div>
+      <form id="form-login" class="auth-form">
+        <input type="text" id="login-login" placeholder="Логин" autocomplete="username">
+        <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password">
+        <div id="login-extra-fields" hidden style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+           <input type="password" id="login-cloud-password" placeholder="Облачный пароль" hidden>
+        </div>
+        <button type="submit" class="btn-primary" data-i18n="login">Войти</button>
+      </form>
+      <div class="auth-footer">
+        <span data-i18n="no_account">Нет аккаунта?</span> <a href="#" id="link-to-register" data-i18n="register">Регистрация</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-register">
+    <div class="auth-card">
+      <button class="back-btn" id="reg-back">←</button>
+      <div class="auth-logo"><h1 data-i18n="register">Регистрация</h1><p>Создайте новый аккаунт</p></div>
+      <form id="form-register" class="auth-form">
+        <input type="text" id="reg-login" placeholder="Логин" autocomplete="username">
+        <input type="password" id="reg-password" placeholder="Пароль" autocomplete="new-password">
+        <input type="password" id="reg-password2" placeholder="Повторите пароль" autocomplete="new-password">
+        <button type="submit" class="btn-primary" data-i18n="register">Зарегистрироваться</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-profile">
+    <div class="auth-card">
+      <button class="back-btn" id="profile-back">←</button>
+      <div class="auth-logo"><h1>Создание профиля</h1><p>Расскажите о себе</p></div>
+      <div class="avatar-upload">
+        <div class="avatar-preview" id="avatar-preview">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        </div>
+        <button type="button" class="btn-secondary" id="btn-upload-avatar">Загрузить фото</button>
+        <input type="file" id="input-avatar" accept="image/*" hidden>
+      </div>
+      <div class="auth-form">
+        <input type="text" id="profile-firstname" placeholder="Имя" maxlength="32">
+        <input type="text" id="profile-lastname" placeholder="Фамилия" maxlength="32">
+        <div class="textarea-wrap">
+          <textarea id="profile-bio" placeholder="Описание (до 70 символов)" maxlength="70" rows="2"></textarea>
+          <span class="char-counter"><span id="bio-count">0</span>/70</span>
+        </div>
+        <input type="date" id="profile-birthday">
+        <button type="button" class="btn-primary" id="profile-next">Далее</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="screen" id="screen-username">
+    <div class="auth-card">
+      <button class="back-btn" id="username-back">←</button>
+      <div class="auth-logo"><h1>Имя пользователя</h1><p>Выберите, как вас будут видеть</p></div>
+      <div class="auth-form">
+        <div class="input-username">
+          <span class="input-prefix">@</span>
+          <input type="text" id="username-input" placeholder="username" maxlength="32">
+        </div>
+        <p class="hint" id="username-hint">Минимум 4 символа: латиница, цифры и _</p>
+        <button type="button" class="btn-primary" id="username-next">Далее</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- МЕССЕНДЖЕР -->
+  <div class="screen" id="screen-main">
+    <div class="messenger">
+      <aside class="sidebar">
+        <div class="sidebar-header" id="sidebar-header">
+          <button class="create-menu-btn" id="btn-create-menu" aria-label="Создать">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+          </button>
+          <div class="search-wrapper">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input type="text" id="search-input" placeholder="Поиск...">
+          </div>
+        </div>
+        <div class="sidebar-content">
+          <div class="tab-panel active" id="panel-chats">
+            <div class="chat-list" id="chat-list"></div>
+            <div class="empty-state" id="chat-list-empty">
+              <div class="empty-state-icon">🔍</div><p>Найдите пользователя через поиск</p>
+            </div>
+          </div>
+          <div class="tab-panel" id="panel-search">
+            <div class="chat-list" id="search-results"></div>
+          </div>
+          <div class="tab-panel" id="panel-profile">
+            <div class="tg-profile">
+              <div class="tg-profile-topbar"><div class="tg-profile-title" data-i18n="profile">Профиль</div></div>
+              <div class="tg-profile-hero">
+                <div class="tg-profile-avatar-wrap">
+                  <div class="tg-profile-avatar" id="tg-profile-avatar"></div>
+                  <div class="tg-profile-camera">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+                  </div>
+                </div>
+                <div class="tg-profile-name" id="tg-profile-name">—</div>
+                <button class="tg-profile-edit-photo" id="btn-change-photo">Изменить фотографию</button>
+                <input type="file" id="input-change-avatar" accept="image/*" hidden>
+              </div>
+              <div class="tg-settings">
+                <div class="tg-settings-group">
+                  <button class="tg-settings-item" id="btn-add-account">
+                    <div class="tg-settings-icon" style="background-color: #34C759;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></div>
+                    <div class="tg-settings-text">Добавить аккаунт</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <div id="accounts-list"></div>
+                </div>
+                <div class="tg-settings-group">
+                  <button class="tg-settings-item" data-action="my-profile">
+                    <div class="tg-settings-icon" style="background-color: #FF3B30;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="my_profile">Мой профиль</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                </div>
+                <div class="tg-settings-group">
+                  <button class="tg-settings-item" id="btn-saved-messages">
+                    <div class="tg-settings-icon" style="background-color: #3390ec;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="favorites">Избранное</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-contacts-list">
+                    <div class="tg-settings-icon" style="background-color: #AF52DE;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="contacts">Контакты</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-devices">
+                    <div class="tg-settings-icon" style="background-color: #FF9500;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M4 6h18V4H4c-1.1 0-2 .9-2 2v11H0v3h14v-3H4V6zm19 2h-6c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h6c.55 0 1-.45 1-1V9c0-.55-.45-1-1-1zm-1 9h-4v-7h4v7z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="devices">Устройства</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-folders">
+                    <div class="tg-settings-icon" style="background-color: #32ADE6;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="folders">Папки с чатами</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                </div>
+                <div class="tg-settings-group">
+                  <button class="tg-settings-item" id="btn-notifications">
+                    <div class="tg-settings-icon" style="background-color: #FF3B30;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="notifications">Уведомления и звуки</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-appearance">
+                    <div class="tg-settings-icon" style="background-color: #007AFF;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5S18.33 12 17.5 12z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="appearance">Оформление</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-privacy">
+                    <div class="tg-settings-icon" style="background-color: #8E8E93;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="privacy">Конфиденциальность</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-language">
+                    <div class="tg-settings-icon" style="background-color: #AF52DE;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm6.93 6h-2.95c-.32-1.25-.78-2.45-1.38-3.56 1.84.63 3.37 1.91 4.33 3.56zM12 4.04c.83 1.2 1.48 2.53 1.91 3.96h-3.82c.43-1.43 1.08-2.76 1.91-3.96zM4.26 14C4.1 13.36 4 12.69 4 12s.1-1.36.26-2h3.38c-.08.66-.14 1.32-.14 2 0 .68.06 1.34.14 2H4.26zm.82 2h2.95c.32 1.25.78 2.45 1.38 3.56-1.84-.63-3.37-1.9-4.33-3.56zm2.95-8H5.08c.96-1.66 2.49-2.93 4.33-3.56C8.81 5.55 8.35 6.75 8.03 8zM12 19.96c-.83-1.2-1.48-2.53-1.91-3.96h3.82c-.43 1.43-1.08 2.76-1.91 3.96zM14.34 14H9.66c-.09-.66-.16-1.32-.16-2 0-.68.07-1.35.16-2h4.68c.09.65.16 1.32.16 2 0 .68-.07 1.34-.16 2zm.25 5.56c.6-1.11 1.06-2.31 1.38-3.56h2.95c-.96 1.65-2.49 2.93-4.33 3.56zM16.36 14c.08-.66.14-1.32.14-2 0-.68-.06-1.34-.14-2h3.38c.16.64.26 1.31.26 2s-.1 1.36-.26 2h-3.38z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="language">Язык</div>
+                    <div class="tg-settings-subtext" id="current-lang-label">Русский</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                </div>
+                <div class="tg-settings-group">
+                  <button class="tg-settings-item" id="btn-delta-up">
+                    <div class="tg-settings-icon" style="background-color: #FF9500;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="delta_up">Delta UP</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-my-stars">
+                    <div class="tg-settings-icon" style="background-color: #FFD700;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="my_stars">Мои звезды</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                  <button class="tg-settings-item" id="btn-send-gift">
+                    <div class="tg-settings-icon" style="background-color: #FF2D55;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/></svg></div>
+                    <div class="tg-settings-text" data-i18n="send_gift">Отправить подарок</div>
+                    <div class="tg-settings-chevron"><svg viewBox="0 0 24 24" width="20" height="20" fill="#C7C7CC"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg></div>
+                  </button>
+                </div>
+                <div class="tg-settings-group">
+                  <button class="tg-settings-item" id="btn-logout" style="justify-content: center;">
+                    <div class="tg-settings-text" style="color: #FF3B30; text-align: center; margin-left: 0;" data-i18n="logout">Выйти</div>
+                  </button>
+                </div>
+              </div>
+              <div class="tg-profile-footer">Delta v1.0.0</div>
+            </div>
+          </div>
+        </div>
+        <nav class="tabs">
+          <button class="tab active" data-tab="chats">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg><span data-i18n="chats">Чаты</span>
+          </button>
+          <button class="tab" data-tab="profile">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg><span data-i18n="profile">Профиль</span>
+          </button>
+        </nav>
+      </aside>
+
+      <main class="chat-area">
+        <div class="empty-chat" id="empty-chat">
+          <div class="empty-chat-frame">
+            <svg class="empty-illustration" viewBox="0 0 300 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="40" y="30" width="180" height="110" rx="16" fill="#e8f0fe"/>
+              <rect x="60" y="55" width="100" height="10" rx="5" fill="#3390ec" opacity="0.8"/>
+              <rect x="60" y="75" width="130" height="10" rx="5" fill="#3390ec" opacity="0.45"/>
+              <rect x="60" y="95" width="80" height="10" rx="5" fill="#3390ec" opacity="0.45"/>
+              <rect x="200" y="112" width="80" height="48" rx="12" fill="#3390ec"/>
+            </svg>
+            <h2 data-i18n="select_chat">Выберите чат</h2><p>Найдите пользователя через поиск и начните общение</p>
+          </div>
+        </div>
+        <div class="chat-view" id="chat-view" hidden>
+          <div class="chat-header" id="chat-header">
+            <button class="mobile-back-btn" id="btn-mobile-back" aria-label="Назад">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            </button>
+            <div class="chat-avatar" id="chat-header-avatar"></div>
+            <div class="chat-header-info">
+              <div class="chat-header-name" id="chat-header-name"></div>
+              <div class="chat-header-status" id="chat-header-status">личный чат</div>
+            </div>
+          </div>
+          <div class="first-time-banner" id="first-time-banner" hidden>
+            <div class="first-time-text">Пользователь пишет вам первый раз</div>
+            <div class="first-time-actions">
+              <button class="first-time-btn first-time-btn-block" id="btn-first-time-block">Заблокировать</button>
+              <button class="first-time-btn first-time-btn-add" id="btn-first-time-add">Добавить в контакты</button>
+            </div>
+          </div>
+          <div class="pinned-message-bar" id="pinned-bar" hidden>
+            <div class="pinned-bar-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg></div>
+            <div class="pinned-bar-content"><div class="pinned-bar-title">Закрепленное сообщение</div><div class="pinned-bar-text" id="pinned-bar-text"></div></div>
+            <button class="pinned-bar-close" id="btn-unpin"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+          </div>
+          <div class="chat-body">
+            <div class="messages" id="messages" hidden></div>
+            <div class="chat-empty-state" id="chat-empty-state">
+              <div class="chat-empty-frame"><div class="chat-empty-emoji">👋</div><h2>Напишите первым</h2><p>Это начало вашей переписки с <span id="chat-empty-name"></span></p></div>
+            </div>
+          </div>
+          <div class="chat-blocked-overlay" id="chat-blocked-overlay" hidden><button class="btn-unblock" id="btn-chat-unblock">Разблокировать</button></div>
+          <div class="input-action-bar" id="input-action-bar" hidden>
+            <div class="action-bar-icon" id="action-bar-icon"></div>
+            <div class="action-bar-content"><div class="action-bar-title" id="action-bar-title">Ответ</div><div class="action-bar-text" id="action-bar-text"></div></div>
+            <button class="action-bar-close" id="btn-cancel-action"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+          </div>
+          <div class="chat-nftbot-start-wrap" id="chat-nftbot-start-wrap" hidden>
+            <button class="btn-primary chat-nftbot-start-btn" id="chat-nftbot-start">Начать</button>
+          </div>
+          <div class="chat-input-area" id="chat-input-area">
+            <button class="btn-attach" id="btn-attach" title="Прикрепить файл"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16.5 6v11.5a4 4 0 01-8 0V5a2.5 2.5 0 015 0v10.5a1 1 0 01-2 0V6H10v9.5a2.5 2.5 0 005 0V5a4 4 0 00-8 0v12.5a5.5 5.5 0 0011 0V6h-1.5z"/></svg></button>
+            <input type="text" id="message-input" placeholder="Написать сообщение...">
+            <button id="btn-send" class="btn-send" title="Отправить"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></button>
+          </div>
+          <div class="chat-subscribe-prompt" id="chat-subscribe-prompt" hidden>
+            <button class="btn-subscribe-channel" id="btn-subscribe-in-chat">Подписаться</button>
+          </div>
+          <div class="chat-input-disabled" id="chat-input-disabled" hidden>
+            Вы не можете опубликовать пост
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- КОНТАКТЫ -->
+  <div class="screen" id="screen-contacts">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="contacts-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title" data-i18n="contacts">Контакты</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll" id="contacts-list" style="padding-bottom:20px;"></div>
+    </div>
+  </div>
+
+  <!-- УСТРОЙСТВА -->
+  <div class="screen" id="screen-devices">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="devices-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title" data-i18n="devices">Устройства</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll">
+        <div class="device-hero">
+          <svg viewBox="0 0 100 100" width="120" height="120" fill="none"><rect x="10" y="20" width="80" height="50" rx="4" fill="#e4e4e7"/><rect x="15" y="25" width="70" height="40" rx="2" fill="#fff"/><path d="M10 70h80v10H10z" fill="#d4d4d8"/></svg>
+          <p class="device-hero-text">Вы можете зайти в приложения Delta<br>для компьютера или браузера с помощью<br>QR-кода.</p>
+          <button class="btn-primary device-connect-btn">Подключить устройство</button>
+        </div>
+        <div class="section-label" style="padding: 0 16px 8px; margin-top: 16px;">ЭТО УСТРОЙСТВО</div>
+        <div class="device-card active">
+          <div class="device-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="#3390ec"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg></div>
+          <div class="device-info"><div class="device-name">Веб-браузер</div><div class="device-meta">Delta Web 1.0 • В сети</div></div>
+        </div>
+        <button class="device-end-sessions" id="btn-end-sessions">Завершить другие сеансы</button>
+        <div class="section-label" style="padding: 0 16px 8px; margin-top: 24px;">АКТИВНЫЕ СЕАНСЫ</div>
+        <div class="device-card">
+          <div class="device-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="#34C759"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg></div>
+          <div class="device-info"><div class="device-name">DeltaHelper Bot</div><div class="device-meta">подключен 05.11.26</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ПАПКИ -->
+  <div class="screen" id="screen-folders">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="folders-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title" data-i18n="folders">Папки с чатами</div>
+        <button class="my-topbar-btn" id="btn-create-folder"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg></button>
+      </div>
+      <div class="my-profile-scroll" id="folders-list" style="padding-bottom:20px;"></div>
+    </div>
+  </div>
+
+  <!-- ПРИВАТНОСТЬ (код-пароль УБРАН) -->
+  <div class="screen" id="screen-privacy">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="privacy-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title" data-i18n="privacy">Конфиденциальность</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll">
+        <div class="edit-group" style="margin-top:16px;">
+          <div class="edit-row" id="btn-blacklist">
+            <div class="edit-row-icon" style="background-color: #FF3B30;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg></div>
+            <div class="edit-row-text">Чёрный список</div>
+            <div class="edit-row-value" id="blacklist-count">0</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+          <div class="edit-row" id="btn-active-sites">
+            <div class="edit-row-icon" style="background-color: #007AFF;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></div>
+            <div class="edit-row-text">Активные сайты</div>
+            <div class="edit-row-value">2</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+          <div class="edit-row" id="btn-cloud-pass">
+            <div class="edit-row-icon" style="background-color: #FF9500;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6-5c1.66 0 3 1.34 3 3v2H8V6c0-1.66 1.34-3 3-3z"/></svg></div>
+            <div class="edit-row-text">Облачный пароль</div>
+            <div class="edit-row-value" id="cloud-pass-val">Нет</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </div>
+        <div class="section-label" style="padding: 0 16px 8px; margin-top: 16px;">КОНФИДЕНЦИАЛЬНОСТЬ</div>
+        <div class="edit-group">
+          <div class="edit-row privacy-toggle" data-key="phone">
+            <div class="edit-row-text">Номер телефона</div><div class="edit-row-value">Все</div>
+          </div>
+          <div class="edit-row privacy-toggle" data-key="last_seen">
+            <div class="edit-row-text">Время захода</div><div class="edit-row-value">Все</div>
+          </div>
+          <div class="edit-row privacy-toggle" data-key="avatar">
+            <div class="edit-row-text">Фотографии профиля</div><div class="edit-row-value">Все</div>
+          </div>
+          <div class="edit-row privacy-toggle" data-key="bio">
+            <div class="edit-row-text">Раздел «О себе»</div><div class="edit-row-value">Все</div>
+          </div>
+          <div class="edit-row privacy-toggle" data-key="birthday">
+            <div class="edit-row-text">День рождения</div><div class="edit-row-value">Все</div>
+          </div>
+        </div>
+        <div class="edit-group" style="margin-top:16px;">
+          <div class="edit-row" id="btn-delete-account">
+            <div class="edit-row-icon" style="background-color: #FF3B30;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></div>
+            <div class="edit-row-text" style="color:var(--danger);">Удалить аккаунт</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЧЁРНЫЙ СПИСОК -->
+  <div class="screen" id="screen-blacklist">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="blacklist-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Чёрный список</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll" id="blacklist-list" style="padding-bottom:20px;"></div>
+    </div>
+  </div>
+
+  <!-- ЯЗЫК -->
+  <div class="screen" id="screen-language">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="language-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title" data-i18n="language">Язык</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll" style="padding-top:16px;">
+        <div class="section-label" style="padding: 0 16px 8px;">ТЕКУЩИЙ ЯЗЫК</div>
+        <div class="edit-group">
+          <div class="edit-row">
+            <div class="edit-row-text" id="current-lang-text">Русский</div>
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="#3390ec"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+        </div>
+        <div class="section-label" style="padding: 16px 16px 8px;">ДОСТУПНЫЕ ЯЗЫКИ</div>
+        <div class="edit-group" id="lang-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ОФОРМЛЕНИЕ (с обоями чата) -->
+  <div class="screen" id="screen-appearance">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="appearance-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Оформление</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll" style="padding-top:16px;">
+        <div class="section-label" style="padding: 0 16px 8px;">ТЕМА</div>
+        <div class="edit-group">
+          <div class="edit-row appearance-theme-row" data-theme="light">
+            <div class="edit-row-icon" style="background-color: #FFB800;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13h2c.55 0 1-.45 1-1s-.45-1-1-1H2c-.55 0-1 .45-1 1s.45 1 1 1zm18 0h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zM11 2v2c0 .55.45 1 1 1s1-.45 1-1V2c0-.55-.45-1-1-1s-1 .45-1 1zm0 18v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zM5.99 4.58c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41L5.99 4.58zm12.37 12.37c-.39-.39-1.03-.39-1.41 0-.39.39-.39 1.03 0 1.41l1.06 1.06c.39.39 1.03.39 1.41 0 .39-.39.39-1.03 0-1.41l-1.06-1.06zm1.06-10.96c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06zM7.05 18.36c.39-.39.39-1.03 0-1.41-.39-.39-1.03-.39-1.41 0l-1.06 1.06c-.39.39-.39 1.03 0 1.41.39.39 1.03.39 1.41 0l1.06-1.06z"/></svg></div>
+            <div class="edit-row-text">Светлая</div>
+            <svg class="edit-chevron appearance-check" data-theme="light" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+          <div class="edit-row appearance-theme-row" data-theme="dark">
+            <div class="edit-row-icon" style="background-color: #2c2c2e;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8z"/></svg></div>
+            <div class="edit-row-text">Тёмная</div>
+            <svg class="edit-chevron appearance-check" data-theme="dark" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+        </div>
+        <div class="section-label" style="padding: 16px 16px 8px;">РАЗМЕР ШРИФТА СООБЩЕНИЙ</div>
+        <div class="edit-group">
+          <div class="edit-row appearance-font-row" data-size="small">
+            <div class="edit-row-text" style="font-size: 13px;">Маленький</div>
+            <svg class="edit-chevron appearance-check-font" data-size="small" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+          <div class="edit-row appearance-font-row" data-size="medium">
+            <div class="edit-row-text" style="font-size: 16px;">Средний</div>
+            <svg class="edit-chevron appearance-check-font" data-size="medium" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+          <div class="edit-row appearance-font-row" data-size="large">
+            <div class="edit-row-text" style="font-size: 19px;">Большой</div>
+            <svg class="edit-chevron appearance-check-font" data-size="large" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+        </div>
+        <div class="section-label" style="padding: 16px 16px 8px;">ОБОИ ЧАТА</div>
+        <div class="wallpaper-preview" id="wallpaper-preview">
+          <span class="wallpaper-placeholder">Обои не установлены</span>
+        </div>
+        <div class="edit-group" style="margin-top:12px;">
+          <div class="edit-row" id="btn-change-wallpaper">
+            <div class="edit-row-icon" style="background-color: #007AFF;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="edit-row-text">Изменить обои</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+          <div class="edit-row" id="btn-reset-wallpaper">
+            <div class="edit-row-icon" style="background-color: #FF3B30;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></div>
+            <div class="edit-row-text" style="color:var(--danger);">Сбросить обои</div>
+          </div>
+        </div>
+        <input type="file" id="input-wallpaper" accept="image/*" hidden>
+      </div>
+    </div>
+  </div>
+
+  <!-- ПЕРСОНАЛИЗАЦИЯ (с кастомным фоном для UP+) -->
+  <div class="screen" id="screen-personalization">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="personalization-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Персонализация</div>
+        <button class="my-topbar-btn" id="btn-save-personalization" style="color: var(--accent);"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>
+      </div>
+      <div class="my-profile-scroll" style="padding-top:16px;">
+        <div class="personalization-preview" id="personalization-preview">
+          <div class="preview-avatar" id="preview-avatar"></div>
+          <div class="preview-name" id="preview-name">Имя</div>
+        </div>
+        <div class="section-label" style="padding: 16px 16px 8px;">ФОН ПРОФИЛЯ</div>
+        <div class="edit-group">
+          <div class="edit-row personalization-color-row" data-color="default">
+            <div class="edit-row-icon" style="background: linear-gradient(135deg, #3390ec, #6baef7);"></div>
+            <div class="edit-row-text">По умолчанию</div>
+            <svg class="edit-chevron personalization-check" data-color="default" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+          <div class="edit-row personalization-color-row" data-color="black">
+            <div class="edit-row-icon" style="background: linear-gradient(135deg, #1c1c1e, #3a3a3c);"></div>
+            <div class="edit-row-text">Чёрный</div>
+            <svg class="edit-chevron personalization-check" data-color="black" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+          <div class="edit-row personalization-color-row" data-color="green">
+            <div class="edit-row-icon" style="background: linear-gradient(135deg, #a8e6cf, #dcedc1);"></div>
+            <div class="edit-row-text">Светло-зелёный</div>
+            <svg class="edit-chevron personalization-check" data-color="green" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+          <div class="edit-row personalization-color-row" data-color="pink">
+            <div class="edit-row-icon" style="background: linear-gradient(135deg, #ffd6e7, #ffb3d1);"></div>
+            <div class="edit-row-text">Розовый</div>
+            <svg class="edit-chevron personalization-check" data-color="pink" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+        </div>
+        <div class="edit-group" style="margin-top:12px;">
+          <div class="edit-row" id="btn-upload-custom-bg">
+            <div class="edit-row-icon" style="background-color: #AF52DE;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg></div>
+            <div class="edit-row-text" id="personalization-custom-label">Загрузить свой фон</div>
+            <div class="edit-row-value" style="background: linear-gradient(135deg, #FF9500, #FF3B30); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 700;">UP+</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </div>
+        <input type="file" id="input-custom-bg" accept="image/*" hidden>
+        <p class="edit-hint" style="margin-top:16px;">Свой фон доступен только с подпиской Delta UP+.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DELTA UP -->
+  <div class="screen" id="screen-delta-up">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="delta-up-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Delta UP</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll">
+        <div class="up-hero">
+          <h1 class="up-title">Delta UP</h1>
+          <p class="up-subtitle">Выберите подходящий тариф</p>
+        </div>
+        <div class="up-tabs">
+          <button class="up-tab active" data-type="up">Delta UP</button>
+          <button class="up-tab" data-type="up+">Delta UP+</button>
+        </div>
+        <div class="up-features" id="up-features"></div>
+        <div class="up-pricing" id="up-pricing"></div>
+        <div class="up-buy-area">
+          <button class="btn-primary up-buy-btn" id="btn-buy-subscription" disabled>Купить</button>
+          <div class="up-buy-price" id="up-buy-price">0 ₽</div>
+        </div>
+        <div class="up-status" id="up-status" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОИ ЗВЕЗДЫ -->
+  <div class="screen" id="screen-my-stars">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="my-stars-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Мои звезды</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll">
+        <div class="stars-hero">
+          <div class="stars-balance">
+            <svg viewBox="0 0 24 24" width="40" height="40" fill="#FFD700"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+            <span id="my-stars-balance">0</span>
+          </div>
+          <button class="btn-primary" id="btn-buy-stars">Купить звезды</button>
+          <p class="stars-desc">Звезды — это валюта во вселенной Delta. Тратьте их, покупая подарки друзьям или себе.</p>
+        </div>
+        <div class="section-label" style="padding: 0 16px 8px;">ТРАНЗАКЦИИ</div>
+        <div class="edit-group" id="transactions-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ПОКУПКА ЗВЕЗД -->
+  <div class="screen" id="screen-buy-stars">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="buy-stars-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Покупка звезд</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll" style="padding-top:16px;">
+        <div class="edit-group">
+          <div class="edit-row buy-stars-row" data-amount="100" data-price="100">
+            <div class="edit-row-icon" style="background-color: #FFD700;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg></div>
+            <div class="edit-row-text">100 звезд</div>
+            <div class="edit-row-value">100 ₽</div>
+          </div>
+          <div class="edit-row buy-stars-row" data-amount="300" data-price="300">
+            <div class="edit-row-icon" style="background-color: #FFD700;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg></div>
+            <div class="edit-row-text">300 звезд</div>
+            <div class="edit-row-value">300 ₽</div>
+          </div>
+          <div class="edit-row buy-stars-row" data-amount="600" data-price="400">
+            <div class="edit-row-icon" style="background-color: #FFD700;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg></div>
+            <div class="edit-row-text">600 звезд</div>
+            <div class="edit-row-value">400 ₽</div>
+          </div>
+        </div>
+        <div class="up-buy-area" style="margin-top: 24px;">
+          <button class="btn-primary up-buy-btn" id="btn-confirm-buy-stars" disabled>Купить</button>
+          <div class="up-buy-price" id="buy-stars-price">0 ₽</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ОТПРАВКА ПОДАРКА -->
+  <div class="screen" id="screen-send-gift">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="send-gift-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Отправка подарка</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll" style="padding-bottom: 80px;">
+        <div class="section-label" style="padding: 16px 16px 8px;">ВЫБЕРИТЕ ПОЛУЧАТЕЛЕЙ</div>
+        <div class="edit-group" id="gift-recipients-list"></div>
+      </div>
+      <div class="gift-bottom-bar">
+        <button class="btn-primary" id="btn-go-to-gifts">Купить подарок</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ВЫБОР ПОДАРКА -->
+  <div class="screen" id="screen-select-gift">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="select-gift-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Выберите подарок</div>
+        <div class="gift-balance-top">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="#FFD700"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+          <span id="gift-screen-balance">0</span>
+        </div>
+      </div>
+      <div class="my-profile-scroll" style="padding-top:16px;">
+        <div class="gift-grid" id="gift-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- АДМИН ПАНЕЛЬ -->
+  <div class="screen" id="screen-admin">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="admin-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Админ панель</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="my-profile-scroll" id="admin-content" style="padding-bottom:20px;"></div>
+    </div>
+  </div>
+
+  <!-- ПРОФИЛЬ ПОЛЬЗОВАТЕЛЯ -->
+  <div class="screen" id="screen-user-view">
+    <div class="user-profile-page">
+      <div class="user-profile-topbar">
+        <button class="topbar-btn" id="user-view-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="topbar-spacer"></div>
+        <button class="topbar-btn-text" id="btn-edit-contact" hidden>Изм.</button>
+      </div>
+      <div class="user-profile-scroll">
+        <div class="user-profile-hero">
+          <div class="user-view-avatar" id="user-view-avatar"></div>
+          <h2 class="user-view-name" id="user-view-name">—</h2>
+          <div class="user-view-status" id="user-view-status-text">был(а) недавно</div>
+          <button class="profile-stars-badge" id="user-view-stars-badge-btn" type="button" style="display:none;">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="#FFD700"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+            <span id="user-view-stars-badge-count">0</span>
+          </button>
+        </div>
+
+        <div class="profile-channel-card" id="user-view-primary-channel-row" hidden>
+          <div class="profile-channel-row" id="user-view-primary-channel">
+            <div class="profile-channel-avatar" id="user-view-primary-channel-avatar"></div>
+            <div class="profile-channel-info">
+              <div class="profile-channel-name" id="user-view-primary-channel-name">—</div>
+              <div class="profile-channel-subs" id="user-view-primary-channel-subs">0 подписчиков</div>
+            </div>
+            <svg class="profile-channel-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </div>
+
+        <div class="user-profile-main-actions" id="user-profile-main-actions">
+          <button class="btn-primary" id="btn-add-contact">Добавить в контакты</button>
+          <button class="btn-secondary danger-text" id="btn-block-user">Заблокировать</button>
+        </div>
+        <div class="user-profile-info-card">
+          <div class="user-info-row" id="user-view-phone-row" hidden>
+            <div class="user-info-label">мобильный</div><div class="user-info-value blue" id="user-view-phone">—</div>
+          </div>
+          <div class="user-info-row">
+            <div class="user-info-label">имя пользователя</div><div class="user-info-value blue" id="user-view-username-row" oncontextmenu="return false;">@—</div>
+            <div class="additional-usernames-row" id="user-view-additional-usernames" style="display:none;"></div>
+          </div>
+          <div class="user-info-row">
+            <div class="user-info-label">о себе</div><div class="user-info-value" id="user-view-bio" oncontextmenu="return false;">—</div>
+          </div>
+        </div>
+        <div class="verified-note" id="user-view-verified-note" hidden>Этот аккаунт верифицирован Delta</div>
+        <div class="user-sub-info" id="user-view-sub-info" hidden>
+          <div class="user-sub-badge" id="user-view-sub-badge"></div>
+          <span class="user-sub-text" id="user-view-sub-text"></span>
+        </div>
+        <div class="user-profile-tags">
+          <button class="my-tag" data-tag-tab="publications">Публикации</button>
+          <button class="my-tag active" data-tag-tab="gifts">Подарки</button>
+          <button class="my-tag" data-tag-tab="media">Медиа</button>
+        </div>
+        <div class="profile-tabs-viewport show-gifts" id="user-view-tabs-viewport">
+          <div class="profile-tabs-track" id="user-view-tabs-track">
+            <div class="profile-tab-panel" id="user-view-tab-publications">
+              <div class="sheet-empty">В разработке</div>
+            </div>
+            <div class="profile-tab-panel" id="user-view-tab-gifts">
+              <div class="sheet-empty">Загрузка...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- МОЙ ПРОФИЛЬ -->
+  <div class="screen" id="screen-my-profile">
+    <div class="my-profile-page">
+      <div class="my-profile-topbar">
+        <button class="my-topbar-btn" id="my-profile-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="my-profile-title">Мой профиль</div>
+        <div class="my-profile-actions-top">
+          <button class="my-topbar-btn" id="my-profile-edit-btn"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></button>
+        </div>
+      </div>
+      <div class="my-profile-scroll">
+        <div class="my-profile-hero" id="my-profile-hero">
+          <div class="my-profile-avatar" id="my-profile-avatar"></div>
+          <h2 class="my-profile-name" id="my-profile-name">—</h2>
+          <div class="my-profile-status">в сети</div>
+          <button class="profile-stars-badge" id="my-stars-badge-btn" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="#FFD700"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+            <span id="my-stars-badge-count">0</span>
+          </button>
+        </div>
+
+        <div class="profile-channel-card" id="my-profile-primary-channel-row" hidden>
+          <div class="profile-channel-row" id="my-profile-primary-channel">
+            <div class="profile-channel-avatar" id="my-primary-channel-avatar"></div>
+            <div class="profile-channel-info">
+              <div class="profile-channel-name" id="my-primary-channel-name">—</div>
+              <div class="profile-channel-subs" id="my-primary-channel-subs">0 подписчиков</div>
+            </div>
+            <svg class="profile-channel-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </div>
+
+        <div class="my-profile-info-card">
+          <div class="my-info-row"><div class="my-info-label">мобильный</div><div class="my-info-value blue" id="my-profile-phone">Не установлен</div></div>
+          <div class="my-info-row"><div class="my-info-label">ID аккаунта</div><div class="my-info-value" id="my-profile-user-id">—</div></div>
+          <div class="my-info-row"><div class="my-info-label">имя пользователя</div><div class="my-info-value blue" id="my-profile-username" oncontextmenu="return false;">@—</div>
+            <div class="additional-usernames-row" id="my-profile-additional-usernames" style="display:none;"></div>
+          </div>
+          <div class="my-info-row"><div class="my-info-label">день рождения</div><div class="my-info-value" id="my-profile-birthday">Не установлен</div></div>
+          <div class="my-info-row"><div class="my-info-label">о себе</div><div class="my-info-value" id="my-profile-bio" oncontextmenu="return false;">Добавить описание</div></div>
+        </div>
+        <div class="verified-note" id="my-profile-verified-note" hidden>Этот аккаунт верифицирован Delta</div>
+        <div class="user-sub-info" id="my-profile-sub-info" hidden>
+          <div class="user-sub-badge" id="my-profile-sub-badge"></div>
+          <span class="user-sub-text" id="my-profile-sub-text"></span>
+        </div>
+        <div class="my-profile-tags">
+          <button class="my-tag" data-tag-tab="publications">Публикации</button>
+          <button class="my-tag active" data-tag-tab="gifts">Подарки</button>
+        </div>
+        <div class="profile-tabs-viewport show-gifts" id="my-profile-tabs-viewport">
+          <div class="profile-tabs-track" id="my-profile-tabs-track">
+            <div class="profile-tab-panel" id="my-profile-tab-publications">
+              <div class="sheet-empty">В разработке</div>
+            </div>
+            <div class="profile-tab-panel" id="my-profile-tab-gifts">
+              <div class="sheet-empty">Загрузка...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- РЕДАКТИРОВАНИЕ ПРОФИЛЯ -->
+  <div class="screen" id="screen-edit-profile">
+    <div class="edit-profile-page">
+      <div class="edit-topbar">
+        <button class="edit-topbar-btn" id="edit-profile-cancel"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+        <div class="edit-topbar-title">Изменить профиль</div>
+        <button class="edit-topbar-btn edit-save-btn" id="edit-profile-save"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>
+      </div>
+      <div class="edit-profile-scroll">
+        <div class="edit-avatar-section">
+          <div class="edit-avatar-preview" id="edit-profile-avatar"></div>
+          <button class="edit-change-photo" id="btn-edit-change-photo">Изменить фотографию</button>
+          <input type="file" id="input-edit-avatar" accept="image/*" hidden>
+        </div>
+        <div class="edit-group">
+          <div class="edit-input-row"><input type="text" id="edit-profile-firstname" placeholder="Имя" maxlength="32"></div>
+          <div class="edit-input-row"><input type="text" id="edit-profile-lastname" placeholder="Фамилия" maxlength="32"></div>
+        </div>
+        <p class="edit-hint">Укажите имя и, если хотите, добавьте фотографию для Вашего профиля.</p>
+        <div class="edit-group">
+          <div class="edit-input-row"><input type="text" id="edit-profile-bio" placeholder="О себе" maxlength="70"></div>
+        </div>
+        <p class="edit-hint">Раздел «О себе» виден всем.</p>
+        <div class="edit-group">
+          <div class="edit-row">
+            <div class="edit-row-icon" style="background-color: #3390ec;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></div>
+            <div class="edit-row-text">День рождения</div>
+            <input type="date" id="edit-profile-birthday" class="edit-date-input">
+          </div>
+        </div>
+        <p class="edit-hint">Ваш день рождения виден всем.</p>
+        <div class="edit-group">
+          <div class="edit-row" id="btn-edit-phone">
+            <div class="edit-row-icon" style="background-color: #34C759;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg></div>
+            <div class="edit-row-text">Номер</div><div class="edit-row-value">Не установлен</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+          <div class="edit-row" id="btn-edit-primary-channel">
+            <div class="edit-row-icon" style="background-color: #007AFF;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg></div>
+            <div class="edit-row-text">Канал</div>
+            <div class="edit-row-value" id="edit-profile-channel-val">Не выбран</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+          <div class="edit-row" id="btn-edit-username">
+            <div class="edit-row-icon" style="background-color: #AF52DE;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg></div>
+            <div class="edit-row-text">Имя пользователя</div>
+            <div class="edit-row-value" id="edit-profile-username-val">@—</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+          <div class="edit-row" id="btn-personalization">
+            <div class="edit-row-icon" style="background-color: #FF3B30;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5S18.33 12 17.5 12z"/></svg></div>
+            <div class="edit-row-text">Персонализация</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ИЗМЕНЕНИЕ ИМЕНИ -->
+  <div class="screen" id="screen-edit-username">
+    <div class="edit-profile-page">
+      <div class="edit-topbar">
+        <button class="edit-topbar-btn" id="edit-username-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="edit-topbar-title">Имя пользователя</div>
+        <button class="edit-topbar-btn edit-save-btn" id="edit-username-save"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>
+      </div>
+      <div class="edit-profile-scroll" style="padding-top: 16px;">
+        <div class="edit-group">
+          <div class="edit-input-row" style="display: flex; align-items: center; padding: 12px 16px;">
+            <span style="color: var(--text-secondary); font-size: 17px; margin-right: 4px;">@</span>
+            <input type="text" id="input-edit-username" placeholder="username" maxlength="32" style="border: none; background: transparent; font-size: 17px; padding: 0; outline: none; flex: 1;">
+          </div>
+        </div>
+        <p class="edit-hint">Вы можете выбрать имя пользователя (латиница, цифры и _, минимум 4 символа).</p>
+        <div class="section-label" style="padding: 16px 16px 8px;">КУПЛЕННЫЕ ЮЗЕРНЕЙМЫ</div>
+        <div id="username-collection-list" style="padding-bottom: 20px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН 1: Создание канала -->
+  <div class="screen" id="screen-create-channel-1">
+    <div class="edit-profile-page">
+      <div class="edit-topbar">
+        <button class="edit-topbar-btn" id="create-ch-1-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="edit-topbar-title">Создание канала</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="edit-profile-scroll">
+        <div class="edit-avatar-section">
+          <div class="edit-avatar-preview" id="create-ch-avatar-preview"></div>
+          <button class="edit-change-photo" id="btn-create-ch-avatar">Загрузить фото канала</button>
+          <input type="file" id="input-create-ch-avatar" accept="image/*" hidden>
+        </div>
+        <div class="edit-group">
+          <div class="edit-input-row"><input type="text" id="create-ch-name" placeholder="Название канала" maxlength="64"></div>
+        </div>
+        <div class="edit-group">
+          <div class="edit-input-row"><input type="text" id="create-ch-desc" placeholder="Описание (необязательно)" maxlength="255"></div>
+        </div>
+        <p class="edit-hint">Укажите название, добавьте аватар и описание.</p>
+        <div style="padding:16px;">
+          <button class="btn-primary" id="btn-create-ch-step1" style="width:100%;">Далее</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН 2: Публичный/Частный -->
+  <div class="screen" id="screen-create-channel-2">
+    <div class="edit-profile-page">
+      <div class="edit-topbar">
+        <button class="edit-topbar-btn" id="create-ch-2-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="edit-topbar-title">Тип канала</div>
+        <div style="width:40px;"></div>
+      </div>
+      <div class="edit-profile-scroll" style="padding-top:16px;">
+        <div class="edit-group">
+          <div class="edit-row create-type-row" data-type="public" id="create-type-public">
+            <div class="edit-row-icon" style="background-color: #3390ec;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></div>
+            <div class="edit-row-text">Публичный канал</div>
+            <svg class="edit-chevron create-type-check" data-type="public" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+          <div class="edit-row create-type-row" data-type="private" id="create-type-private">
+            <div class="edit-row-icon" style="background-color: #8E8E93;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></div>
+            <div class="edit-row-text">Частный канал</div>
+            <svg class="edit-chevron create-type-check" data-type="private" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          </div>
+        </div>
+        <div id="create-ch-username-block" hidden>
+          <div class="edit-group">
+            <div class="edit-input-row" style="display:flex; align-items:center;">
+              <span style="color:var(--accent); font-weight:600; font-size:16px; margin-right:2px;">@</span>
+              <input type="text" id="create-ch-username" placeholder="username" maxlength="32" style="flex:1;">
+            </div>
+          </div>
+          <p class="edit-hint">4-32 символа: a-z, 0-9, _</p>
+        </div>
+        <div id="create-ch-private-block" hidden style="padding:0 16px 16px;">
+          <div style="background:var(--bg-secondary); border-radius:12px; padding:14px; font-size:14px; color:var(--text-secondary); line-height:1.5;">
+            В частные каналы подписчиков может добавлять только владелец или админ канала.
+          </div>
+        </div>
+        <div style="padding:16px;">
+          <button class="btn-primary" id="btn-create-ch-finish" style="width:100%;">Создать канал</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН: Просмотр канала -->
+  <div class="screen" id="screen-channel-view">
+    <div class="user-profile-page">
+      <div class="user-profile-topbar">
+        <button class="topbar-btn" id="channel-view-back"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg></button>
+        <div class="topbar-spacer"></div>
+        <button class="topbar-btn-text" id="btn-edit-channel" hidden>Изм.</button>
+      </div>
+      <div class="user-profile-scroll">
+        <div class="user-profile-hero">
+          <div class="user-view-avatar" id="channel-view-avatar"></div>
+          <h2 class="user-view-name" id="channel-view-name">—</h2>
+          <div class="user-view-status" id="channel-view-subscribers" style="margin-top:4px;">0 подписчиков</div>
+        </div>
+        <div class="user-profile-info-card">
+          <div class="user-info-row">
+            <div class="user-info-label">имя пользователя</div>
+            <div class="user-info-value blue" id="channel-view-username">@—</div>
+          </div>
+          <div class="user-info-row">
+            <div class="user-info-label">описание</div>
+            <div class="user-info-value" id="channel-view-bio">—</div>
+          </div>
+        </div>
+        <div class="user-profile-main-actions">
+          <button class="btn-primary" id="btn-channel-action" style="display:none;">Подписаться</button>
+          <button class="btn-primary" id="btn-channel-add-subscriber" style="display:none;">Добавить подписчика</button>
+          <button class="btn-secondary" id="btn-channel-invite">Пригласить</button>
+          <button class="btn-secondary danger-text" id="btn-channel-leave" style="display:none;">Покинуть канал</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ЭКРАН: Редактирование канала (FULL-SCREEN) -->
+  <div class="screen" id="screen-edit-channel">
+    <div class="edit-profile-page channel-edit-page">
+      <div class="edit-topbar">
+        <button class="edit-topbar-btn" id="edit-channel-cancel"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg></button>
+        <div class="edit-topbar-title">Настройки канала</div>
+        <button class="edit-topbar-btn edit-save-btn" id="edit-channel-save"><svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></button>
+      </div>
+      <div class="edit-profile-scroll">
+        <div class="edit-avatar-section">
+          <div class="edit-avatar-preview" id="edit-channel-avatar"></div>
+          <button class="edit-change-photo" id="btn-edit-channel-avatar">Изменить фотографию</button>
+          <input type="file" id="input-edit-channel-avatar" accept="image/*" hidden>
+        </div>
+        <div class="edit-group">
+          <div class="edit-input-row"><input type="text" id="edit-channel-name" placeholder="Название" maxlength="64"></div>
+        </div>
+        <div class="edit-group">
+          <div class="edit-input-row"><input type="text" id="edit-channel-desc" placeholder="Описание" maxlength="255"></div>
+        </div>
+        <div class="edit-group">
+          <div class="edit-row" id="btn-edit-channel-access">
+            <div class="edit-row-icon" style="background-color: #3390ec;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg></div>
+            <div class="edit-row-text">Доступность</div>
+            <div class="edit-row-value" id="edit-channel-access-val">Публичный</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+          <div class="edit-row" id="btn-edit-channel-subs">
+            <div class="edit-row-icon" style="background-color: #AF52DE;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+            <div class="edit-row-text">Подписчики</div>
+            <div class="edit-row-value" id="edit-channel-subs-count">0</div>
+            <svg class="edit-chevron" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+          </div>
+        </div>
+        <div class="edit-group" style="margin-top:16px;">
+          <div class="edit-row" id="btn-delete-channel">
+            <div class="edit-row-icon" style="background-color: #FF3B30;"><svg viewBox="0 0 24 24" width="20" height="20" fill="#fff"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></div>
+            <div class="edit-row-text" style="color:var(--danger);">Удалить канал</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<!-- BOTTOM SHEET ДЛЯ ПРОФИЛЯ -->
+<div class="bottom-sheet-overlay" id="profile-bottom-sheet">
+  <div class="bottom-sheet-content">
+    <div class="bottom-sheet-handle"></div>
+    <div class="bottom-sheet-header">
+      <h3 id="sheet-title">Подарки</h3>
+      <button class="bottom-sheet-close" id="sheet-close">&times;</button>
+    </div>
+    <div class="bottom-sheet-body" id="sheet-body"></div>
+  </div>
+</div>
+
+<!-- МОДАЛЬНЫЕ ОКНА -->
+<div class="modal-overlay" id="modal-contact" hidden>
+  <div class="modal-content">
+    <h3 id="modal-contact-title">Контакт</h3>
+    <input type="text" id="contact-firstname" placeholder="Имя" maxlength="32">
+    <input type="text" id="contact-lastname" placeholder="Фамилия" maxlength="32">
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-save-contact">Сохранить</button>
+      <button class="btn-secondary danger-text" id="btn-delete-contact" hidden>Удалить</button>
+    </div>
+    <button class="modal-close" id="btn-close-contact">Отмена</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-block" hidden>
+  <div class="modal-content">
+    <h3>Заблокировать пользователя?</h3>
+    <p class="modal-desc">Пользователь не сможет писать вам, а вы — ему.</p>
+    <div class="modal-actions">
+      <button class="btn-primary danger-bg" id="btn-confirm-block">Заблокировать</button>
+      <button class="btn-secondary" id="btn-cancel-block">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-folder" hidden>
+  <div class="modal-content">
+    <h3>Новая папка</h3>
+    <input type="text" id="folder-name-input" placeholder="Название папки" maxlength="32">
+    <div class="folder-chat-list" id="folder-chat-list"></div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-save-folder">Создать</button>
+    </div>
+    <button class="modal-close" id="btn-close-folder">Отмена</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-cloud-setup" hidden>
+  <div class="modal-content">
+    <h3>Облачный пароль</h3>
+    <p class="modal-desc">Дополнительный пароль для входа</p>
+    <input type="password" id="input-cloud-pass" placeholder="Пароль" minlength="6">
+    <input type="password" id="input-cloud-pass2" placeholder="Повторите пароль">
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-setup-cloud">Сохранить</button>
+      <button class="btn-secondary danger-text" id="btn-remove-cloud" hidden>Удалить</button>
+    </div>
+    <button class="modal-close" id="btn-cancel-cloud">Отмена</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-confirm" hidden>
+  <div class="modal-content">
+    <h3 id="confirm-title">Подтверждение</h3>
+    <p class="modal-desc" id="confirm-text"></p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-confirm-yes">Да</button>
+      <button class="btn-secondary" id="btn-confirm-no">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-delete-account" hidden>
+  <div class="modal-content">
+    <h3>Удалить аккаунт?</h3>
+    <p class="modal-desc">Это действие необратимо. Введите пароль.</p>
+    <input type="password" id="delete-account-password" placeholder="Пароль">
+    <input type="password" id="delete-account-cloud-password" placeholder="Облачный пароль" hidden>
+    <div class="modal-actions">
+      <button class="btn-primary danger-bg" id="btn-confirm-delete-account">Удалить</button>
+      <button class="btn-secondary" id="btn-cancel-delete-account">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-up-required" hidden>
+  <div class="modal-content">
+    <h3>Требуется Delta UP</h3>
+    <p class="modal-desc">Для этой функции нужна подписка Delta UP.</p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-go-to-up">Оформить подписку</button>
+      <button class="btn-secondary" id="btn-close-up-required">Позже</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-up-plus-required" hidden>
+  <div class="modal-content">
+    <h3>Только для Delta UP+</h3>
+    <p class="modal-desc">Свой фон профиля доступен только с подпиской Delta UP+.</p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-go-to-up-from-plus">Оформить Delta UP+</button>
+      <button class="btn-secondary" id="btn-close-up-plus-required">Позже</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-sub-details" hidden>
+  <div class="modal-content">
+    <h3 id="sub-details-title">Delta UP</h3>
+    <p class="modal-desc" id="sub-details-text"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-close-sub-details">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-stars-info" hidden>
+  <div class="modal-content">
+    <button class="modal-x-btn" id="btn-close-stars-info" aria-label="Закрыть">✕</button>
+    <div style="font-size:48px;text-align:center;margin-bottom:8px;">
+      <svg viewBox="0 0 24 24" width="56" height="56" fill="#FFD700"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+    </div>
+    <h3 id="stars-info-title">Звёзды</h3>
+    <p class="modal-desc" id="stars-info-text">—</p>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-ok-stars-info">ОК</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-gift-details" hidden>
+  <div class="modal-content">
+    <div class="gift-modal-icon" id="gift-modal-icon">🎁</div>
+    <h3 id="gift-modal-title">Название</h3>
+    <p class="modal-desc" id="gift-modal-price">0 звезд</p>
+    <input type="text" id="gift-modal-message" placeholder="Сообщение к подарку" maxlength="70">
+    <div class="gift-anon-toggle">
+      <span>Отправить анонимно</span>
+      <input type="checkbox" id="gift-modal-anon">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-gift-buy">Купить</button>
+      <div class="gift-total-price" id="gift-total-price">0 звезд</div>
+    </div>
+    <button class="modal-close" id="btn-close-gift-details">Отмена</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-gift-view" hidden>
+  <div class="modal-content">
+    <div class="gift-modal-icon" id="gift-view-icon">🎁</div>
+    <h3 id="gift-view-name">Подарок</h3>
+    <p class="modal-desc" id="gift-view-price">0 ⭐</p>
+    <div class="gift-view-row">
+      <div class="gift-view-label">От кого</div>
+      <div class="gift-view-value" id="gift-view-from">—</div>
+    </div>
+    <div class="gift-view-row">
+      <div class="gift-view-label">Подпись</div>
+      <div class="gift-view-message" id="gift-view-message">—</div>
+    </div>
+    <div class="gift-view-row">
+      <div class="gift-view-label">Дата</div>
+      <div class="gift-view-value" style="font-size:13px;color:var(--text-secondary);" id="gift-view-date">—</div>
+    </div>
+    <button class="modal-close" id="btn-close-gift-view">Закрыть</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-username-info" hidden>
+  <div class="modal-content">
+    <button class="modal-x-btn" id="btn-close-username-info" aria-label="Закрыть">✕</button>
+    <div style="font-size:42px;text-align:center;margin-bottom:8px;">🏷️</div>
+    <h3 id="username-info-title">@username</h3>
+    <p class="modal-desc" id="username-info-desc">Это коллекционный юзернейм</p>
+    <div id="username-info-details"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-ok-username-info">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-create-menu" hidden>
+  <div class="modal-content">
+    <h3>Создать</h3>
+    <button class="btn-secondary" id="btn-menu-create-channel" style="width:100%; text-align:left; padding:14px 16px;">
+      <span style="display:inline-flex; align-items:center; gap:10px;">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="var(--accent)"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        Создать канал
+      </span>
+    </button>
+    <button class="modal-close" id="btn-close-create-menu">Отмена</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-channel-access" hidden>
+  <div class="modal-content">
+    <h3>Доступность канала</h3>
+    <div class="edit-group" style="margin:0;">
+      <div class="edit-row" id="ch-access-public">
+        <div class="edit-row-text">Публичный</div>
+        <svg class="edit-chevron ch-access-check" data-type="public" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      </div>
+      <div class="edit-row" id="ch-access-private">
+        <div class="edit-row-text">Частный</div>
+        <svg class="edit-chevron ch-access-check" data-type="private" viewBox="0 0 24 24" width="20" height="20" fill="#3390ec" hidden><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+      </div>
+    </div>
+    <div id="ch-access-username-block" hidden>
+      <input type="text" id="ch-access-username" placeholder="@username" maxlength="32">
+      <p class="modal-desc" style="margin-top:6px;">4-32 символа: a-z, 0-9, _</p>
+    </div>
+    <div id="ch-access-private-note" hidden class="modal-desc" style="margin-top:6px; text-align:left;">
+      В частный канал подписчиков добавляет только владелец.
+    </div>
+    <div class="modal-actions">
+      <button class="btn-primary" id="btn-save-channel-access">Сохранить</button>
+    </div>
+    <button class="modal-close" id="btn-close-channel-access">Отмена</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-channel-subscribers" hidden>
+  <div class="modal-content">
+    <h3>Подписчики</h3>
+    <div class="folder-chat-list" id="channel-subscribers-list" style="max-height: 60vh;"></div>
+    <button class="modal-close" id="btn-close-channel-subscribers">Закрыть</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-channel-add-subscriber" hidden>
+  <div class="modal-content" style="max-width:380px;">
+    <h3>Добавить подписчика</h3>
+    <input type="text" id="ch-add-sub-search" placeholder="Поиск по @username или имени" maxlength="32">
+    <div class="folder-chat-list" id="ch-add-sub-list" style="max-height: 50vh;"></div>
+    <button class="modal-close" id="btn-close-channel-add-subscriber">Отмена</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-select-primary-channel" hidden>
+  <div class="modal-content">
+    <h3>Выберите канал</h3>
+    <div class="folder-chat-list" id="primary-channel-list" style="max-height: 60vh;"></div>
+    <button class="modal-close" id="btn-close-primary-channel">Отмена</button>
+  </div>
+</div>
+
+<!-- КОНТЕКСТНЫЕ МЕНЮ -->
+<div id="context-menu" class="context-menu" hidden>
+  <button id="ctx-copy">Скопировать</button>
+</div>
+<div id="my-profile-context-menu" class="context-menu" hidden>
+  <button id="ctx-edit-profile">Изменить</button>
+  <button id="ctx-copy-my-profile">Скопировать</button>
+</div>
+<div id="chat-context-menu" class="context-menu dark-menu" hidden>
+  <button data-action="folder">
+    <svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+    <span>В папку</span>
+  </button>
+  <button data-action="pin">
+    <svg viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+    <span>Закрепить</span>
+  </button>
+  <button data-action="mute">
+    <svg viewBox="0 0 24 24"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2z"/></svg>
+    <span>Выключить уведомления</span>
+  </button>
+  <div class="menu-separator"></div>
+  <button data-action="delete" class="danger">
+    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    <span>Удалить чат</span>
+  </button>
+</div>
+<div id="msg-context-menu" class="context-menu dark-menu" hidden>
+  <button data-action="reply">
+    <svg viewBox="0 0 24 24"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+    <span>Ответить</span>
+  </button>
+  <button data-action="copy">
+    <svg viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+    <span>Копировать</span>
+  </button>
+  <button data-action="edit" id="msg-menu-edit">
+    <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+    <span>Изменить</span>
+  </button>
+  <button data-action="pin">
+    <svg viewBox="0 0 24 24"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+    <span>Закрепить</span>
+  </button>
+  <div class="menu-separator"></div>
+  <button data-action="delete" class="danger">
+    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    <span>Удалить</span>
+  </button>
+</div>
+<div id="msg-delete-menu" class="context-menu dark-menu" hidden>
+  <button data-action="delete-all" class="danger">
+    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    <span>Удалить у всех</span>
+  </button>
+  <button data-action="delete-me">
+    <svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+    <span>Удалить у себя</span>
+  </button>
+</div>
+
+<script src="/app.js"></script>
+<script src="/qr.js"></script>
+<!-- <script src="/notify.js"></script> -->
+</body>
+</html>
